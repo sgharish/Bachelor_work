@@ -1,0 +1,247 @@
+//readme:
+// Use A for Distance 
+//B for temprature 
+//C for smoke value
+//strip.fill error for LED may occur sometime run it again and it will be fine
+//tune the potentio meter if there is a problem with display
+//Since other keys are not required they have been disabled.
+//Distance 200 is minimum and 40 is maximum
+//temprature 40 is minimum and 160 is maximum(with a assumption that the outputed value is scaled)
+//smoke 40 to 200(scaling has been performed based on the certain needs)
+//intially it will be a blank screen.
+#include <Adafruit_NeoPixel.h>
+#include <Keypad.h>
+#include<LiquidCrystal.h>
+#define PIN 8
+#define LED_COUNT 16
+float temp = A0;
+LiquidCrystal lcd(12,11,5,4,3,2);
+const int trig = 9;
+const int echo = 10;
+int gas = A1;
+char* USS = "A";
+char* TS ="B";
+char* GS ="C";  
+const byte r = 4;
+const byte c = 4;
+char  keys[r][c]={{'1','2','3','A'},
+{'4','5','6','B'},
+{'7','8','9','C'},
+{'*','0','#','D'}};
+byte rpin[r]={A5,A4,A3,A2};
+byte cpin[c]={6,7,8,13};
+Keypad keypad= Keypad(makeKeymap(keys), rpin, cpin, r, c);
+int distance(int x,int y);
+int temprature(int x);
+
+Adafruit_NeoPixel strip(LED_COUNT,PIN,NEO_GRB + NEO_KHZ800);
+void setup()
+{
+  pinMode(9,OUTPUT);//Trigger pin USS
+  pinMode(10,INPUT);// echo pin of USS
+  lcd.begin(16,2);
+ Serial.begin(9600);
+  strip.begin();
+  strip.show();
+}
+
+void loop()
+{
+  int us,ts,gmeas;
+  //double measurment = analogRead(A0);
+  //delay(10000);
+  //lcd.setCursor(0,1);
+  //lcd.print("for sensorvalue ");
+  //delay(10000);
+  char keypr = keypad.getKey();
+  if(keypr != NO_KEY)
+  {
+    Serial.println(keypr);
+    switch(keypr)
+    {
+      case'1':
+      us = distance(trig,echo);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Distance");
+      lcd.setCursor(0,1);
+      lcd.print(us);
+      break;
+      
+      case'4':
+      ts = temprature(temp);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Temprature:");
+      lcd.setCursor(0,1);
+      lcd.print(ts);
+      break;
+      
+      case'7':
+      gmeas = gasmeas(gas);
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Gas Sensor:");
+      lcd.setCursor(0,1);
+      lcd.print(gmeas);
+      break;
+      
+      default:
+      lcd.setCursor(0,0);
+      lcd.print("Wrong key");
+      break;
+    }
+  }
+}
+
+int distance(int x, int y)
+{
+long duration,d;  
+digitalWrite(x, LOW);
+delayMicroseconds(2);
+digitalWrite(x, HIGH);
+delayMicroseconds(10);
+digitalWrite(x, LOW);
+duration = pulseIn(y, HIGH);
+d = (duration*0.034)/2;
+  if(d<=200&&d>40){
+    int l =(16-(d/10))+4;
+    Serial.println(l);
+    indicator(l);
+  }
+  else if(d>200){
+    uint32_t green = strip.Color(0,255,0);
+    strip.setPixelColor(0,green);
+  }
+  else if(d<40){
+    uint32_t green = strip.Color(0,255,0);
+    uint32_t yellow = strip.Color(255,255,0);
+    uint32_t red = strip.Color(255,0,0);
+    strip.fill(green,0,5);
+    strip.fill(yellow,6,10);
+    strip.fill(red,11,16);
+  }
+  strip.show();
+return d;
+}
+int temprature(int x)
+{
+  int measurment = analogRead(x);
+  if(measurment>=40&&measurment<=160)
+  {
+    int v = (measurment/8)-3;
+    Serial.println(v);
+    indicator(v);
+  }  
+  else if(measurment<40){
+    uint32_t green = strip.Color(0,255,0);
+    strip.setPixelColor(0,green);
+  }
+  else if(measurment>=160)
+  {
+    uint32_t green = strip.Color(0,255,0);
+    uint32_t yellow = strip.Color(255,255,0);
+    uint32_t red = strip.Color(255,0,0);
+    strip.fill(green,0,5);
+    strip.fill(yellow,6,10);
+    strip.fill(red,11,16);
+  }
+  strip.show();
+  return measurment;
+}
+int gasmeas(int x)
+{
+  int m = analogRead(x);
+  int n = m-682;
+  if(n>40&&n<=200){
+    int l =(n/10)-4;
+    Serial.println(l);
+    indicator(l);
+  }
+  else if(n>200){
+    uint32_t green = strip.Color(0,255,0);
+    uint32_t yellow = strip.Color(255,255,0);
+    uint32_t red = strip.Color(255,0,0);
+    strip.fill(green,0,5);
+    strip.fill(yellow,6,10);
+    strip.fill(red,11,16);
+  }
+  else if(n<40){
+    uint32_t green = strip.Color(0,255,0);
+    strip.setPixelColor(0,green);
+  }
+  strip.show();
+  return n;
+}
+static void indicator(int y)
+{
+  int i;
+  if(y<5)
+  {
+    for(i=0;i<y;i++){
+      Serial.println(i);
+      uint32_t green = strip.Color(0,255,0);
+      strip.setPixelColor(i,green);
+    strip.show();
+    }
+  }
+  else if(y>5&&y<=10){
+    for(i=0;i<y;i++){
+      Serial.println(i);
+      uint32_t green = strip.Color(0,255,0);
+      uint32_t yellow = strip.Color(255,255,0);
+      strip.setPixelColor(i-3,green);
+      if(i>=4){
+      strip.setPixelColor(i,yellow);
+      }
+    strip.show();
+    }
+  }
+  else if(y>10&&y<=16)
+    {
+    for(i=0;i<y;i++)
+    {
+      uint32_t green = strip.Color(0,255,0);
+      uint32_t yellow = strip.Color(255,255,0);
+      uint32_t red = strip.Color(255,0,0);
+      strip.fill(green,0,5);
+      strip.fill(yellow,5,10);
+      if(i>=11&&i<=16)
+      {
+        int n=i;
+        for(n=11;n<=i;n++)
+        {
+          Serial.println(n);
+         strip.setPixelColor(n,red);
+        }
+      } 
+    strip.show();
+    }
+  }
+}
+  
+
+  //long time,dist;
+  //digitalWrite(trig,LOW);
+  //delay(1000);
+  //digitalWrite(trig,HIGH);
+  //delay(1000);
+  //digitalWrite(trig,LOW);
+  //time = pulseIn(echo,HIGH);
+  //dist = (time*0.34)/2;
+  //Serial.println(dist);
+  //delay(1000);
+  //float rt = measurment/339; 
+  //float rtdegree = rt*100;
+  //lcd.setCursor(0,0);
+  //lcd.print("Temprature sensor");
+  //lcd.setCursor(0,1);
+  //lcd.print(measurment);
+  //float gmeas = analogRead(gas);
+  //Serial.print("gas sensor:");
+  //Serial.println(gmeas);
+  // for monitoring purpose
+ /*digitalWrite(11, HIGH);
+  delay(1000); // Wait for 1000 millisecond(s)
+  digitalWrite(11, LOW);
+  delay(1000); // Wait for 1000 millisecond(s)*/
